@@ -17,108 +17,79 @@ async function generateWorkoutPlan(userData) {
     const cardioEquipment = userData.equipmentCardio?.join(", ") || "None";
     const mobilityEquipment = userData.equipmentMobility?.join(", ") || "None";
 
+    // If this is a plan update request, modify the prompt accordingly
+    const systemMessage = userData.updateRequest
+      ? "You are a fitness assistant that helps modify workout plans based on user feedback. Output strictly in JSON format."
+      : "You are a fitness assistant that strictly outputs JSON. Never include Markdown, plain text, or explanations.";
+
+    const userMessage = userData.updateRequest
+      ? `
+Please review and modify this workout plan based on the user's feedback:
+
+CURRENT PLAN:
+${JSON.stringify(userData.days, null, 2)}
+
+USER FEEDBACK:
+${userData.feedback}
+
+Please provide an updated version of the workout plan that addresses the user's feedback while maintaining the overall structure and goals. Return the modified plan in the same JSON format as the original plan.`
+      : `
+Generate a structured 7-day workout plan for ${userData.preferredName}. 
+This is all the information about the user:
+
+START OF USER INFORMATION
+**User Profile**:
+- Name: ${userData.preferredName}
+- Age: ${userData.age}
+- Sex: ${userData.sex}
+- Fitness Goal: ${userData.fitnessGoalScale === 1 ? "Build Strength" : "Build Cardio"}
+- Days available: ${userData.workoutDaysRange ? userData.workoutDaysRange.join(" to ") : userData.workoutDays} days/week
+- Time available per session: ${userData.workoutTimeRange ? userData.workoutTimeRange.join(" to ") : userData.workoutTime} minutes
+- Preferred workout types: ${userData.preferredWorkouts.join(", ") || "None"}
+
+**Current Fitness Level**:
+- Current workout days: ${userData.currentWorkoutDaysRange?.join(" to ") || "N/A"} days/week
+- Current session duration: ${userData.currentWorkoutTimeRange?.join(" to ") || "N/A"} minutes
+- Current Fitness Level: ${userData.fitnessLevel}/5
+- Pull-ups capability: ${userData.pullUps}
+- Push-ups capability: ${userData.pushUps}
+- Cardio frequency: ${userData.cardioFrequency}
+- Cardio duration: ${userData.cardioDuration ? userData.cardioDuration.join(" to ") : "N/A"} minutes
+- Cardio type: ${userData.cardioType.join(", ") || "None"}
+- Flexibility/Mobility rating: ${userData.flexibility}/5
+
+**Available Equipment**:
+- Strength: ${strengthEquipment}
+- Cardio: ${cardioEquipment}
+- Mobility: ${mobilityEquipment}
+- Other equipment: ${userData.equipmentStrengthOther || userData.equipmentCardioOther || userData.equipmentMobilityOther || "None"}
+
+**Additional Information**:
+- Motivations: ${userData.motivations.join(", ") || "None"}
+- Obstacles: ${userData.obstacles.join(", ") || "None"}
+- Injuries: ${userData.injuryLocations.join(", ") || "None"}
+- Known health risks: ${userData.healthRisks.join(", ") || "None"}
+- Fitness tracker(s): ${userData.fitnessTrackers.join(", ") || "None"}
+END OF USER INFORMATION`;
+
     const apiRequest = {
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
-          content: "You are a fitness assistant that strictly outputs JSON. Never include Markdown, plain text, or explanations."
+          content: systemMessage
         },
         {
           role: "user",
-          content: `
-  Generate a structured 7-day workout plan for ${userData.preferredName}. 
-  This is all the information about the user:
-
-  START OF USER INFORMATION
-  **User Profile**:
-  - Name: ${userData.preferredName}
-  - Age: ${userData.age}
-  - Sex: ${userData.sex}
-  - Fitness Goal: ${userData.fitnessGoalScale === 1 ? "Build Strength" : "Build Cardio"}
-  - Days available: ${userData.workoutDaysRange ? userData.workoutDaysRange.join(" to ") : userData.workoutDays} days/week
-  - Time available per session: ${userData.workoutTimeRange ? userData.workoutTimeRange.join(" to ") : userData.workoutTime} minutes
-  - Preferred workout types: ${userData.preferredWorkouts.join(", ") || "None"}
-
-  **Current Fitness Level**:
-  - Current workout days: ${userData.currentWorkoutDaysRange?.join(" to ") || "N/A"} days/week
-  - Current session duration: ${userData.currentWorkoutTimeRange?.join(" to ") || "N/A"} minutes
-  - Current Fitness Level: ${userData.fitnessLevel}/5
-  - Pull-ups capability: ${userData.pullUps}
-  - Push-ups capability: ${userData.pushUps}
-  - Cardio frequency: ${userData.cardioFrequency}
-  - Cardio duration: ${userData.cardioDuration ? userData.cardioDuration.join(" to ") : "N/A"} minutes
-  - Cardio type: ${userData.cardioType.join(", ") || "None"}
-  - Flexibility/Mobility rating: ${userData.flexibility}/5
-
-  **Available Equipment**:
-  - Strength: ${strengthEquipment}
-  - Cardio: ${cardioEquipment}
-  - Mobility: ${mobilityEquipment}
-  - Other equipment: ${userData.equipmentStrengthOther || userData.equipmentCardioOther || userData.equipmentMobilityOther || "None"}
-
-  **Additional Information**:
-  - Motivations: ${userData.motivations.join(", ") || "None"}
-  - Obstacles: ${userData.obstacles.join(", ") || "None"}
-  - Injuries: ${userData.injuryLocations.join(", ") || "None"}
-  - Known health risks: ${userData.healthRisks.join(", ") || "None"}
-  - Fitness tracker(s): ${userData.fitnessTrackers.join(", ") || "None"}
-END OF USER INFORMATION
-
-Please create a structured 7-day workout plan with the following format for each day:
-
-For each day (Day 1-7), provide:
-1. Focus: Main focus of the workout
-2. Estimated Time: Total workout duration
-3. Warmup: List of exercises with sets, reps, and notes
-4. Workout: Main exercises with sets, reps, and weight tracking
-5. Cooldown: Stretches and mobility work
-
-
-Return a workout plan using valid JSON ONLY, with the following schema. Don't return anything else because I will parse this response.
-
-{
-  "days": [
-    {
-      "dayNumber": 1,
-      "focus": "string",
-      "estimatedTime": "string",
-      "warmup": [
-        {
-          "name": "string",
-          "sets": number,
-          "reps": "string",
-          "notes": "string"
-        }
-      ],
-      "workout": [
-        {
-          "name": "string",
-          "sets": number,
-          "reps": "string",
-          "notes": "string",
-          "weightTracking": boolean
-        }
-      ],
-      "cooldown": [
-        {
-          "name": "string",
-          "duration": "string",
-          "notes": "string"
-        }
-      ]
-    }
-  ]
-}
-
-Only return your response in the JSON format described above.
-`
+          content: userMessage
         }
       ],
       functions: [
         {
           name: "return_workout_plan",
-          description: "Return the user's 7-day workout plan strictly as JSON",
+          description: userData.updateRequest 
+            ? "Return the modified workout plan based on user feedback" 
+            : "Return the user's 7-day workout plan strictly as JSON",
           parameters: {
             type: "object",
             properties: {
@@ -195,6 +166,23 @@ Only return your response in the JSON format described above.
         ? JSON.parse(response.choices[0].message.function_call.arguments)
         : response.choices[0].message.content
     };
+
+    // Add scheduled dates to each day
+    if (safeResponse.workoutPlan && safeResponse.workoutPlan.days) {
+      const startDate = new Date();
+      startDate.setHours(0, 0, 0, 0); // Reset time to start of day
+      
+      safeResponse.workoutPlan.days = safeResponse.workoutPlan.days.map((day, index) => {
+        const scheduledDate = new Date(startDate);
+        scheduledDate.setDate(startDate.getDate() + index);
+        return {
+          ...day,
+          scheduledDate: scheduledDate.toISOString(),
+          completed: false,
+          completedDate: null
+        };
+      });
+    }
 
     console.log("Returning safe response:", JSON.stringify(safeResponse, null, 2));
 

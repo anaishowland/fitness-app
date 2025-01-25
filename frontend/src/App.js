@@ -7,6 +7,8 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
 import './App.css';
+import WorkoutHistory from './components/WorkoutHistory';
+import RequireAuth from './components/RequireAuth';
 
 // Import components
 import WorkoutGenerator from './components/WorkoutGenerator';
@@ -111,6 +113,11 @@ function App() {
                   : <Navigate to="/login" />
               } 
             />
+            <Route path="/workout-history" element={
+              <RequireAuth>
+                <WorkoutHistory />
+              </RequireAuth>
+            } />
           </Routes>
         </div>
       </Router>
